@@ -1,0 +1,10 @@
+[theme]
+base = "dark"
+primaryColor = "#7EC8F2"            # baby blue
+backgroundColor = "#04070F"         # near-black
+secondaryBackgroundColor = "#0B1F3A" # navy
+textColor = "#E6F1FB"
+font = "sans serif"
+
+[browser]
+gatherUsageStats = false
