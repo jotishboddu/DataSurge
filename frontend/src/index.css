@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+/* datasurge console theme — dark navy with cloud-console blue accents */
+@theme {
+  --font-sans: "Inter", "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-ink-950: #090b0f;
+  --color-ink-900: #101318;
+  --color-ink-850: #14181f;
+  --color-ink-800: #191e26;
+  --color-ink-750: #202630;
+  --color-ink-700: #262e3a;
+  --color-ink-600: #22406a;
+  --color-ink-500: #2e5487;
+  --color-line: #292f39;
+  --color-line-strong: #363e4b;
+
+  --color-brand: #1a73e8;
+  --color-brand-hi: #4c8df6;
+  --color-sky: #8ab4f8;
+  --color-text: #edf0f5;
+  --color-muted: #a4adbc;
+  --color-faint: #8893a4;
+
+  --color-ok: #34d399;
+  --color-risk: #facc15;
+  --color-degraded: #fb923c;
+  --color-down: #f43f5e;
+  --color-maint: #a78bfa;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-ink-950);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { scrollbar-width: thin; scrollbar-color: #363e4b transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: #22406a; border-radius: 8px; }
+
+/* React Flow overrides */
+.react-flow { --xy-background-color: transparent; }
+.react-flow__attribution { display: none; }
+.react-flow__controls { box-shadow: none !important; border: 1px solid var(--color-line-strong); border-radius: 8px; overflow: hidden; }
+.react-flow__controls-button { background: var(--color-ink-800) !important; border-bottom: 1px solid var(--color-line) !important; fill: var(--color-sky) !important; color: var(--color-sky) !important; }
+.react-flow__controls-button:hover { background: var(--color-ink-700) !important; }
+.react-flow__edge-textbg { fill: var(--color-ink-850); }
+.react-flow__edge-text { fill: var(--color-sky); font-size: 10px; }
+.react-flow__handle { opacity: 0; }
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(76, 141, 246, .55); }
+  70% { box-shadow: 0 0 0 9px rgba(76, 141, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(76, 141, 246, 0); }
+}
+.pulse-ring { animation: pulse-ring 1.6s infinite; }
+
+@keyframes blink { 50% { opacity: .35; } }
+.blink { animation: blink 1s steps(2, start) infinite; }
+
+@keyframes slide-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.slide-in { animation: slide-in .18s ease-out; }
+
+/* Spacious workspace, restrained chrome, and readable focus states. */
+header:first-child { min-height: 68px; background: #101318; border-bottom: 1px solid #292f39; }
+h1 { font-size: 32px !important; font-weight: 400 !important; letter-spacing: -.035em; }
+button, summary, input { outline-offset: 4px; }
+button:focus-visible, summary:focus-visible { outline: 2px solid #6da8ff; }
+.react-flow__handle { opacity: 1; width: 6px; height: 6px; background: #7a96ba; border: 0; }
+@media (max-width: 1100px) {
+  .console-workspace { flex-direction: column; flex: none; }
+  .incident-column { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

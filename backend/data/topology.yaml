@@ -1,0 +1,230 @@
+# ---------------------------------------------------------------------------
+# datasurge — simulated data center topology
+#
+# Edit this file to change the data center. The backend reloads it on reset.
+#
+#   components:   every physical/logical thing in the data center
+#   dependencies: "to depends on from". `from` may be a list with `min`
+#                 for redundant groups (e.g. dual-corded power: min 1 of 2).
+#   workloads:    AI jobs. Their `host` (GPU node) and `storage` edges are
+#                 generated automatically and change when workloads migrate.
+#
+# Edge types and how impact flows across them:
+#   power       down->down, degraded->at_risk
+#   cooling     loss of cooling puts dependents at risk (thermal model)
+#   network     down->down, degraded->degraded
+#   host        down->down, degraded->degraded
+#   storage     training: down->down, inference: down->degraded
+#   replication cross-region; source down -> replica at_risk (RPO)
+#   failover    cross-region; primary down -> standby at_risk (load surge)
+# ---------------------------------------------------------------------------
+
+regions:
+  - { id: us-east,    name: "US East (N. Virginia)", code: use }
+  - { id: us-central, name: "US Central (Iowa)",     code: usc }
+  - { id: eu-west,    name: "EU West (Dublin)",      code: euw }
+
+# Round-trip latency between regions (ms) and cross-region egress price
+region_latency_ms:
+  us-east:    { us-east: 0,  us-central: 22, eu-west: 78 }
+  us-central: { us-east: 22, us-central: 0,  eu-west: 95 }
+  eu-west:    { us-east: 78, us-central: 95, eu-west: 0 }
+egress_cost_per_gb: 0.02
+
+customers:
+  - { id: acme,      name: "Acme Cloud",        tier: platinum, sla: "99.99%", penalty_per_hour: 40000 }
+  - { id: northwind, name: "Northwind AI",      tier: platinum, sla: "99.95%", penalty_per_hour: 25000 }
+  - { id: helios,    name: "Helios Robotics",   tier: gold,     sla: "99.9%",  penalty_per_hour: 8000 }
+  - { id: lumen,     name: "Lumen Retail",      tier: gold,     sla: "99.9%",  penalty_per_hour: 6000 }
+  - { id: internal,  name: "Internal Platform", tier: silver,   sla: "99.5%",  penalty_per_hour: 0 }
+
+components:
+  # ============================ US EAST ====================================
+  - { id: use-feed-a,    region: us-east, kind: power_feed, name: "Utility Feed A" }
+  - { id: use-feed-b,    region: us-east, kind: power_feed, name: "Utility Feed B" }
+  - { id: use-ups-1,     region: us-east, kind: ups,        name: "UPS-1", runtime_min: 15 }
+  - { id: use-ups-2,     region: us-east, kind: ups,        name: "UPS-2", runtime_min: 15 }
+  - { id: use-chiller-1, region: us-east, kind: chiller,    name: "Chiller CH-1" }
+  - { id: use-crac-1,    region: us-east, kind: crac,       name: "CRAC-1 (Row B4–B6)" }
+  - { id: use-crac-2,    region: us-east, kind: crac,       name: "CRAC-2 (Row B7–B9)" }
+  - { id: use-spine-1,   region: us-east, kind: spine,      name: "Spine-1" }
+  - { id: use-spine-2,   region: us-east, kind: spine,      name: "Spine-2" }
+  - { id: use-leaf-a,    region: us-east, kind: leaf,       name: "ToR Leaf-A (B4–B6)" }
+  - { id: use-leaf-b,    region: us-east, kind: leaf,       name: "ToR Leaf-B (B7–B9)" }
+  - { id: use-rack-b4,   region: us-east, kind: rack,       name: "Rack B4" }
+  - { id: use-rack-b5,   region: us-east, kind: rack,       name: "Rack B5" }
+  - { id: use-rack-b6,   region: us-east, kind: rack,       name: "Rack B6" }
+  - { id: use-rack-b7,   region: us-east, kind: rack,       name: "Rack B7" }
+  - { id: use-rack-b8,   region: us-east, kind: rack,       name: "Rack B8" }
+  - { id: use-rack-b9,   region: us-east, kind: rack,       name: "Rack B9" }
+  - { id: use-gpu-b4, region: us-east, kind: gpu_node, name: "B4 · 32× H100", rack: use-rack-b4, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.40 }
+  - { id: use-gpu-b5, region: us-east, kind: gpu_node, name: "B5 · 32× H100", rack: use-rack-b5, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.40 }
+  - { id: use-gpu-b6, region: us-east, kind: gpu_node, name: "B6 · 32× H100", rack: use-rack-b6, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.40 }
+  - { id: use-gpu-b7, region: us-east, kind: gpu_node, name: "B7 · 32× H100", rack: use-rack-b7, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.40 }
+  - { id: use-gpu-b8, region: us-east, kind: gpu_node, name: "B8 · 32× A100", rack: use-rack-b8, gpu_type: A100, gpus_total: 32, cost_per_gpu_hr: 1.60 }
+  - { id: use-gpu-b9, region: us-east, kind: gpu_node, name: "B9 · 32× A100", rack: use-rack-b9, gpu_type: A100, gpus_total: 32, cost_per_gpu_hr: 1.60 }
+  - { id: use-stor-1, region: us-east, kind: storage, name: "Ceph east-1 (training data)", capacity_tb: 4800 }
+  - { id: use-stor-2, region: us-east, kind: storage, name: "Object east-2 (models)",      capacity_tb: 2400 }
+
+  # =========================== US CENTRAL ==================================
+  - { id: usc-feed-a,    region: us-central, kind: power_feed, name: "Utility Feed A" }
+  - { id: usc-feed-b,    region: us-central, kind: power_feed, name: "Utility Feed B" }
+  - { id: usc-ups-1,     region: us-central, kind: ups,        name: "UPS-1", runtime_min: 14 }
+  - { id: usc-ups-2,     region: us-central, kind: ups,        name: "UPS-2", runtime_min: 14 }
+  - { id: usc-chiller-1, region: us-central, kind: chiller,    name: "Chiller CH-1" }
+  - { id: usc-crac-1,    region: us-central, kind: crac,       name: "CRAC-1 (Row C1–C2)" }
+  - { id: usc-crac-2,    region: us-central, kind: crac,       name: "CRAC-2 (Row C3–C4)" }
+  - { id: usc-spine-1,   region: us-central, kind: spine,      name: "Spine-1" }
+  - { id: usc-spine-2,   region: us-central, kind: spine,      name: "Spine-2" }
+  - { id: usc-leaf-a,    region: us-central, kind: leaf,       name: "ToR Leaf-A (C1–C2)" }
+  - { id: usc-leaf-b,    region: us-central, kind: leaf,       name: "ToR Leaf-B (C3–C4)" }
+  - { id: usc-rack-c1,   region: us-central, kind: rack,       name: "Rack C1" }
+  - { id: usc-rack-c2,   region: us-central, kind: rack,       name: "Rack C2" }
+  - { id: usc-rack-c3,   region: us-central, kind: rack,       name: "Rack C3" }
+  - { id: usc-rack-c4,   region: us-central, kind: rack,       name: "Rack C4" }
+  - { id: usc-gpu-c1, region: us-central, kind: gpu_node, name: "C1 · 32× H100", rack: usc-rack-c1, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.10 }
+  - { id: usc-gpu-c2, region: us-central, kind: gpu_node, name: "C2 · 32× H100", rack: usc-rack-c2, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.10 }
+  - { id: usc-gpu-c3, region: us-central, kind: gpu_node, name: "C3 · 32× H100", rack: usc-rack-c3, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.10 }
+  - { id: usc-gpu-c4, region: us-central, kind: gpu_node, name: "C4 · 48× L40S", rack: usc-rack-c4, gpu_type: L40S, gpus_total: 48, cost_per_gpu_hr: 0.90 }
+  - { id: usc-stor-1, region: us-central, kind: storage, name: "Ceph central-1", capacity_tb: 3600 }
+
+  # ============================= EU WEST ===================================
+  - { id: euw-feed-a,    region: eu-west, kind: power_feed, name: "Utility Feed A" }
+  - { id: euw-feed-b,    region: eu-west, kind: power_feed, name: "Utility Feed B" }
+  - { id: euw-ups-1,     region: eu-west, kind: ups,        name: "UPS-1", runtime_min: 16 }
+  - { id: euw-ups-2,     region: eu-west, kind: ups,        name: "UPS-2", runtime_min: 16 }
+  - { id: euw-chiller-1, region: eu-west, kind: chiller,    name: "Chiller CH-1" }
+  - { id: euw-crac-1,    region: eu-west, kind: crac,       name: "CRAC-1 (Row E1–E2)" }
+  - { id: euw-crac-2,    region: eu-west, kind: crac,       name: "CRAC-2 (Row E3–E4)" }
+  - { id: euw-spine-1,   region: eu-west, kind: spine,      name: "Spine-1" }
+  - { id: euw-spine-2,   region: eu-west, kind: spine,      name: "Spine-2" }
+  - { id: euw-leaf-a,    region: eu-west, kind: leaf,       name: "ToR Leaf-A (E1–E2)" }
+  - { id: euw-leaf-b,    region: eu-west, kind: leaf,       name: "ToR Leaf-B (E3–E4)" }
+  - { id: euw-rack-e1,   region: eu-west, kind: rack,       name: "Rack E1" }
+  - { id: euw-rack-e2,   region: eu-west, kind: rack,       name: "Rack E2" }
+  - { id: euw-rack-e3,   region: eu-west, kind: rack,       name: "Rack E3" }
+  - { id: euw-rack-e4,   region: eu-west, kind: rack,       name: "Rack E4" }
+  - { id: euw-gpu-e1, region: eu-west, kind: gpu_node, name: "E1 · 32× H100", rack: euw-rack-e1, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.60 }
+  - { id: euw-gpu-e2, region: eu-west, kind: gpu_node, name: "E2 · 32× H100", rack: euw-rack-e2, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.60 }
+  - { id: euw-gpu-e3, region: eu-west, kind: gpu_node, name: "E3 · 32× H100", rack: euw-rack-e3, gpu_type: H100, gpus_total: 32, cost_per_gpu_hr: 2.60 }
+  - { id: euw-gpu-e4, region: eu-west, kind: gpu_node, name: "E4 · 32× A100", rack: euw-rack-e4, gpu_type: A100, gpus_total: 32, cost_per_gpu_hr: 1.80 }
+  - { id: euw-stor-1, region: eu-west, kind: storage, name: "Ceph eu-1", capacity_tb: 3000 }
+
+workloads:
+  # type: training | inference. gpu_types: acceptable hardware.
+  # residency: regions the workload's data may live in (omit = any).
+  - { id: use-train-orion,  region: us-east, name: "Orion-70B pretrain",     type: training,  customer: northwind, gpu_types: [H100], gpus: 32, host: use-gpu-b4, storage: use-stor-1, checkpoint_gb: 1400 }
+  - { id: use-train-orion2, region: us-east, name: "Orion-70B pretrain (shard 2)", type: training, customer: northwind, gpu_types: [H100], gpus: 32, host: use-gpu-b5, storage: use-stor-1, checkpoint_gb: 1400 }
+  - { id: use-inf-chat,     region: us-east, name: "Chat API (prod)",        type: inference, customer: acme,      gpu_types: [H100], gpus: 16, host: use-gpu-b6, storage: use-stor-2, model_gb: 140, qps: 4200, base_p99_ms: 180, latency_budget_ms: 250 }
+  - { id: use-inf-code,     region: us-east, name: "Code Assist API",        type: inference, customer: acme,      gpu_types: [H100], gpus: 8,  host: use-gpu-b7, storage: use-stor-2, model_gb: 70,  qps: 1500, base_p99_ms: 210, latency_budget_ms: 300 }
+  - { id: use-inf-embed,    region: us-east, name: "Embeddings API",         type: inference, customer: internal,  gpu_types: [A100, H100], gpus: 16, host: use-gpu-b8, storage: use-stor-2, model_gb: 8, qps: 9000, base_p99_ms: 40, latency_budget_ms: 120 }
+  - { id: use-train-vision, region: us-east, name: "Vision fine-tune",       type: training,  customer: helios,    gpu_types: [A100, H100], gpus: 16, host: use-gpu-b9, storage: use-stor-1, checkpoint_gb: 300 }
+
+  - { id: usc-inf-chat-dr,  region: us-central, name: "Chat API (DR standby)", type: inference, customer: acme,      gpu_types: [H100], gpus: 8,  host: usc-gpu-c1, storage: usc-stor-1, model_gb: 140, qps: 300, base_p99_ms: 190, latency_budget_ms: 280 }
+  - { id: usc-train-atlas,  region: us-central, name: "Atlas MoE training",    type: training,  customer: northwind, gpu_types: [H100], gpus: 24, host: usc-gpu-c2, storage: usc-stor-1, checkpoint_gb: 900 }
+  - { id: usc-train-rlhf,   region: us-central, name: "RLHF batch",            type: training,  customer: internal,  gpu_types: [H100], gpus: 16, host: usc-gpu-c3, storage: usc-stor-1, checkpoint_gb: 400 }
+  - { id: usc-inf-recs,     region: us-central, name: "Recommendations API",   type: inference, customer: lumen,     gpu_types: [L40S, A100], gpus: 16, host: usc-gpu-c4, storage: usc-stor-1, model_gb: 12, qps: 6000, base_p99_ms: 60, latency_budget_ms: 150 }
+
+  - { id: euw-inf-chat,     region: eu-west, name: "Chat API (EU)",          type: inference, customer: acme,      gpu_types: [H100], gpus: 16, host: euw-gpu-e1, storage: euw-stor-1, model_gb: 140, qps: 2100, base_p99_ms: 185, latency_budget_ms: 250, residency: [eu-west] }
+  - { id: euw-inf-translate, region: eu-west, name: "Translation API",       type: inference, customer: lumen,     gpu_types: [H100], gpus: 8,  host: euw-gpu-e2, storage: euw-stor-1, model_gb: 40, qps: 1800, base_p99_ms: 120, latency_budget_ms: 200, residency: [eu-west] }
+  - { id: euw-train-asr,    region: eu-west, name: "Speech ASR training",    type: training,  customer: helios,    gpu_types: [A100], gpus: 24, host: euw-gpu-e4, storage: euw-stor-1, checkpoint_gb: 500 }
+  - { id: euw-train-ft,     region: eu-west, name: "Fine-tune batch",        type: training,  customer: internal,  gpu_types: [H100], gpus: 8,  host: euw-gpu-e3, storage: euw-stor-1, checkpoint_gb: 120 }
+
+dependencies:
+  # ---------------- US EAST ----------------
+  - { from: use-feed-a, to: use-ups-1, type: power }
+  - { from: use-feed-b, to: use-ups-2, type: power }
+  - { from: use-ups-1, to: use-chiller-1, type: power }
+  - { from: use-ups-1, to: use-crac-1, type: power }
+  - { from: use-ups-2, to: use-crac-2, type: power }
+  - { from: use-chiller-1, to: use-crac-1, type: cooling }
+  - { from: use-chiller-1, to: use-crac-2, type: cooling }
+  - { from: [use-ups-1, use-ups-2], min: 1, to: use-spine-1, type: power }
+  - { from: [use-ups-1, use-ups-2], min: 1, to: use-spine-2, type: power }
+  - { from: [use-spine-1, use-spine-2], min: 1, to: use-leaf-a, type: network }
+  - { from: [use-spine-1, use-spine-2], min: 1, to: use-leaf-b, type: network }
+  - { from: [use-ups-1, use-ups-2], min: 1, to: use-stor-1, type: power }
+  - { from: [use-ups-1, use-ups-2], min: 1, to: use-stor-2, type: power }
+  - { from: [use-spine-1, use-spine-2], min: 1, to: use-stor-1, type: network }
+  - { from: [use-spine-1, use-spine-2], min: 1, to: use-stor-2, type: network }
+  - { from: [use-ups-1, use-ups-2], min: 1, to: [use-rack-b4, use-rack-b5, use-rack-b6, use-rack-b7, use-rack-b8, use-rack-b9], type: power }
+  - { from: use-crac-1, to: [use-rack-b4, use-rack-b5, use-rack-b6], type: cooling }
+  - { from: use-crac-2, to: [use-rack-b7, use-rack-b8, use-rack-b9], type: cooling }
+  - { from: use-leaf-a, to: [use-rack-b4, use-rack-b5, use-rack-b6], type: network }
+  - { from: use-leaf-b, to: [use-rack-b7, use-rack-b8, use-rack-b9], type: network }
+
+  # --------------- US CENTRAL ---------------
+  - { from: usc-feed-a, to: usc-ups-1, type: power }
+  - { from: usc-feed-b, to: usc-ups-2, type: power }
+  - { from: usc-ups-1, to: usc-chiller-1, type: power }
+  - { from: usc-ups-1, to: usc-crac-1, type: power }
+  - { from: usc-ups-1, to: usc-crac-2, type: power }
+  - { from: usc-chiller-1, to: usc-crac-1, type: cooling }
+  - { from: usc-chiller-1, to: usc-crac-2, type: cooling }
+  - { from: [usc-ups-1, usc-ups-2], min: 1, to: usc-spine-1, type: power }
+  - { from: [usc-ups-1, usc-ups-2], min: 1, to: usc-spine-2, type: power }
+  - { from: [usc-spine-1, usc-spine-2], min: 1, to: usc-leaf-a, type: network }
+  - { from: [usc-spine-1, usc-spine-2], min: 1, to: usc-leaf-b, type: network }
+  - { from: [usc-ups-1, usc-ups-2], min: 1, to: usc-stor-1, type: power }
+  - { from: [usc-spine-1, usc-spine-2], min: 1, to: usc-stor-1, type: network }
+  - { from: [usc-ups-1, usc-ups-2], min: 1, to: [usc-rack-c1, usc-rack-c2, usc-rack-c3, usc-rack-c4], type: power }
+  - { from: usc-crac-1, to: [usc-rack-c1, usc-rack-c2], type: cooling }
+  - { from: usc-crac-2, to: [usc-rack-c3, usc-rack-c4], type: cooling }
+  - { from: usc-leaf-a, to: [usc-rack-c1, usc-rack-c2], type: network }
+  - { from: usc-leaf-b, to: [usc-rack-c3, usc-rack-c4], type: network }
+
+  # ---------------- EU WEST -----------------
+  - { from: euw-feed-a, to: euw-ups-1, type: power }
+  - { from: euw-feed-b, to: euw-ups-2, type: power }
+  - { from: euw-ups-1, to: euw-chiller-1, type: power }
+  - { from: euw-ups-1, to: euw-crac-1, type: power }
+  - { from: euw-ups-2, to: euw-crac-2, type: power }
+  - { from: euw-chiller-1, to: euw-crac-1, type: cooling }
+  - { from: euw-chiller-1, to: euw-crac-2, type: cooling }
+  - { from: [euw-ups-1, euw-ups-2], min: 1, to: euw-spine-1, type: power }
+  - { from: [euw-ups-1, euw-ups-2], min: 1, to: euw-spine-2, type: power }
+  - { from: [euw-spine-1, euw-spine-2], min: 1, to: euw-leaf-a, type: network }
+  - { from: [euw-spine-1, euw-spine-2], min: 1, to: euw-leaf-b, type: network }
+  - { from: [euw-ups-1, euw-ups-2], min: 1, to: euw-stor-1, type: power }
+  - { from: [euw-spine-1, euw-spine-2], min: 1, to: euw-stor-1, type: network }
+  - { from: [euw-ups-1, euw-ups-2], min: 1, to: [euw-rack-e1, euw-rack-e2, euw-rack-e3, euw-rack-e4], type: power }
+  - { from: euw-crac-1, to: [euw-rack-e1, euw-rack-e2], type: cooling }
+  - { from: euw-crac-2, to: [euw-rack-e3, euw-rack-e4], type: cooling }
+  - { from: euw-leaf-a, to: [euw-rack-e1, euw-rack-e2], type: network }
+  - { from: euw-leaf-b, to: [euw-rack-e3, euw-rack-e4], type: network }
+
+  # ------------- CROSS-REGION ---------------
+  - { from: use-stor-1, to: usc-stor-1, type: replication, label: "async replication (RPO 15m)" }
+  - { from: usc-stor-1, to: use-stor-2, type: replication, label: "model registry mirror" }
+  - { from: use-inf-chat, to: usc-inf-chat-dr, type: failover, label: "DNS failover" }
+
+# GPU node -> rack edges are generated from each gpu_node's `rack` field.
+
+# Incident presets for the "Trigger incident" button. `targets` limits which
+# components the preset can be aimed at; the first one is the default.
+incident_presets:
+  - id: cooling_failure
+    name: "Cooling failure"
+    description: "Chiller trips on a compressor fault; CRACs lose chilled water and racks start heating."
+    kinds: [chiller, crac]
+    default_target: use-chiller-1
+  - id: power_feed_loss
+    name: "Power feed loss"
+    description: "Utility feed drops; the generator fails to start, so the UPS runs on battery."
+    kinds: [power_feed]
+    default_target: usc-feed-a
+  - id: tor_flapping
+    name: "Top-of-rack switch flapping"
+    description: "A ToR leaf's uplinks flap (bad optic); packet loss on every rack behind it."
+    kinds: [leaf, spine]
+    default_target: euw-leaf-a
+  - id: storage_degradation
+    name: "Storage degradation"
+    description: "Two OSD disks fail; the cluster rebuilds with high latency and goes read-only in ~30 min if a third fails."
+    kinds: [storage]
+    default_target: use-stor-1
+  - id: gpu_ecc
+    name: "GPU ECC errors"
+    description: "Correctable ECC errors spike on a GPU node; the GPU is likely to fall off the bus within ~20 min."
+    kinds: [gpu_node]
+    default_target: usc-gpu-c2

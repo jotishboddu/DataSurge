@@ -1,0 +1,44 @@
+# Suggested runbooks shown in each engineer's personal view, keyed by
+# incident category.
+power:
+  title: "RB-PWR-01 · Utility feed / UPS on battery"
+  steps:
+    - "Confirm feed loss on the BMS and check the utility provider status page."
+    - "Check generator ATS state; if the generator failed to start, attempt a manual start."
+    - "Note the UPS battery runtime and post the ETA in the incident channel."
+    - "Shed non-critical load (silver-tier training) if runtime is under 10 min."
+    - "Approve migrations for platinum workloads on single-corded or at-risk racks."
+    - "When the feed or generator is restored, verify the UPS returns to online mode."
+cooling:
+  title: "RB-COOL-02 · Chiller / CRAC failure"
+  steps:
+    - "Check the chiller alarm code on the BMS (compressor, flow or condenser fault)."
+    - "Switch to the standby chiller loop, or open economizer dampers if outside air allows."
+    - "Raise CRAC fan speed to 100% on the remaining units."
+    - "Watch rack inlet temps; the thermal limit is 35°C and shutdown is 40°C."
+    - "Checkpoint and migrate training jobs on the hottest racks before they reach the limit."
+    - "Dispatch facilities to the chiller plant; log the vendor ticket number."
+network:
+  title: "RB-NET-03 · ToR / leaf switch flapping"
+  steps:
+    - "Pull interface counters: CRC errors, flap count and optic DOM levels."
+    - "If one uplink is flapping, administratively shut it so traffic uses the other spine."
+    - "Verify ECMP rebalanced and packet loss is back under 0.1%."
+    - "Drain inference traffic from affected racks if loss persists for more than 5 min."
+    - "Schedule optic/cable replacement and attach DOM readings to the ticket."
+storage:
+  title: "RB-STOR-04 · Ceph cluster degraded"
+  steps:
+    - "Run `ceph health detail`; identify failed OSDs and placement groups that are degraded."
+    - "Set `noout` to prevent rebalancing storms while disks are being replaced."
+    - "Throttle recovery (osd_max_backfills=1) if client latency is above 20 ms."
+    - "Move hot datasets to the replica cluster if a third disk failure is likely."
+    - "Hot-swap failed disks and confirm the rebuild completes."
+gpu:
+  title: "RB-GPU-05 · GPU ECC / XID errors"
+  steps:
+    - "Pull `nvidia-smi -q -d ECC` and dmesg XID codes for the node."
+    - "Cordon the node in the scheduler so no new jobs land on it."
+    - "Checkpoint training jobs now; do not wait for the next scheduled checkpoint."
+    - "Migrate workloads to a healthy node with matching GPU type."
+    - "Drain the node and open an RMA with the vendor, attaching the ECC report."

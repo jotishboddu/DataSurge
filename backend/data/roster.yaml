@@ -1,0 +1,35 @@
+# On-call roster. Shift times are in simulated local time (24h).
+# skills[0] is the engineer's primary specialization; the rest are secondary.
+# Specializations: power, cooling, network, storage, gpu
+
+shifts:
+  - { id: night, name: "Night shift", start: "22:00", end: "06:00" }
+  - { id: day,   name: "Day shift",   start: "06:00", end: "14:00" }
+  - { id: swing, name: "Swing shift", start: "14:00", end: "22:00" }
+
+engineers:
+  # ---- Night ----
+  - { id: priya,  name: "Priya Raman",   shift: night, role: lead,     skills: [cooling, power] }
+  - { id: marcus, name: "Marcus Chen",   shift: night, role: engineer, skills: [power, cooling] }
+  - { id: sofia,  name: "Sofia Alvarez", shift: night, role: engineer, skills: [cooling, power] }
+  - { id: dev,    name: "Dev Patel",     shift: night, role: engineer, skills: [network, storage] }
+  - { id: hana,   name: "Hana Kim",      shift: night, role: engineer, skills: [storage, gpu] }
+  - { id: tomas,  name: "Tomás Silva",   shift: night, role: engineer, skills: [gpu, network] }
+  # ---- Day ----
+  - { id: jordan, name: "Jordan Blake",  shift: day, role: lead,     skills: [network, gpu] }
+  - { id: aisha,  name: "Aisha Okafor",  shift: day, role: engineer, skills: [power, cooling] }
+  - { id: lena,   name: "Lena Fischer",  shift: day, role: engineer, skills: [cooling, storage] }
+  - { id: ravi,   name: "Ravi Iyer",     shift: day, role: engineer, skills: [network, gpu] }
+  - { id: mei,    name: "Mei Tanaka",    shift: day, role: engineer, skills: [storage, network] }
+  - { id: kwame,  name: "Kwame Mensah",  shift: day, role: engineer, skills: [gpu, power] }
+  # ---- Swing ----
+  - { id: elena,  name: "Elena Petrova", shift: swing, role: lead,     skills: [power, storage] }
+  - { id: omar,   name: "Omar Haddad",   shift: swing, role: engineer, skills: [power, network] }
+  - { id: grace,  name: "Grace Liu",     shift: swing, role: engineer, skills: [cooling, gpu] }
+  - { id: noah,   name: "Noah Williams", shift: swing, role: engineer, skills: [network, storage] }
+  - { id: isabel, name: "Isabel Rossi",  shift: swing, role: engineer, skills: [storage, cooling] }
+  - { id: yuki,   name: "Yuki Sato",     shift: swing, role: engineer, skills: [gpu, network] }
+
+# Minutes (simulated) an incident may stay unacknowledged before each
+# escalation step: re-notify -> backup engineer -> shift lead.
+ack_timeout_min: { P1: 3, P2: 8, P3: 15, P4: 30 }
